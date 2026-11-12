@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { markets, type MarketConfig, type MarketId } from "@/config/markets";
@@ -23,25 +24,39 @@ type Theme = "day" | "night";
 const ThemeCtx = createContext<{ theme: Theme; toggle: () => void }>({ theme: "day", toggle: () => {} });
 export const useTheme = () => useContext(ThemeCtx);
 
+const themeListeners = new Set<() => void>();
+
+function subscribeTheme(cb: () => void) {
+  themeListeners.add(cb);
+  return () => {
+    themeListeners.delete(cb);
+  };
+}
+
+function getThemeSnapshot(): Theme {
+  return typeof document !== "undefined" && document.documentElement.dataset.theme === "night" ? "night" : "day";
+}
+
+function getServerThemeSnapshot(): Theme {
+  return "day";
+}
+
 function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("day");
-  useEffect(() => {
-    const t = document.documentElement.dataset.theme === "night" ? "night" : "day";
-    setTheme(t);
-  }, []);
+  const theme = useSyncExternalStore(subscribeTheme, getThemeSnapshot, getServerThemeSnapshot);
+
   const toggle = useCallback(() => {
-    setTheme((prev) => {
-      const next: Theme = prev === "day" ? "night" : "day";
-      const root = document.documentElement;
-      root.classList.add("theme-transition");
-      root.dataset.theme = next;
-      try {
-        localStorage.setItem("aurelia-theme", next);
-      } catch {}
-      window.setTimeout(() => root.classList.remove("theme-transition"), 1400);
-      return next;
-    });
+    const current = getThemeSnapshot();
+    const next: Theme = current === "day" ? "night" : "day";
+    const root = document.documentElement;
+    root.classList.add("theme-transition");
+    root.dataset.theme = next;
+    try {
+      localStorage.setItem("aurelia-theme", next);
+    } catch {}
+    themeListeners.forEach((cb) => cb());
+    window.setTimeout(() => root.classList.remove("theme-transition"), 1400);
   }, []);
+
   return <ThemeCtx.Provider value={{ theme, toggle }}>{children}</ThemeCtx.Provider>;
 }
 
@@ -52,21 +67,53 @@ const MarketCtx = createContext<{ market: MarketConfig; setMarket: (id: MarketId
 });
 export const useMarket = () => useContext(MarketCtx);
 
+const marketListeners = new Set<() => void>();
+let cachedMarket: MarketId | null = null;
+
+function subscribeMarket(cb: () => void) {
+  marketListeners.add(cb);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === "aurelia-market" && (e.newValue === "india" || e.newValue === "usa")) {
+      cachedMarket = e.newValue;
+      cb();
+    }
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    marketListeners.delete(cb);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+function getMarketSnapshot(): MarketId {
+  if (cachedMarket !== null) return cachedMarket;
+  try {
+    const saved = localStorage.getItem("aurelia-market");
+    if (saved === "india" || saved === "usa") {
+      cachedMarket = saved;
+      return cachedMarket;
+    }
+  } catch {}
+  cachedMarket = DEFAULT_MARKET;
+  return cachedMarket;
+}
+
+function getServerMarketSnapshot(): MarketId {
+  return DEFAULT_MARKET;
+}
+
 function MarketProvider({ children }: { children: ReactNode }) {
-  const [id, setId] = useState<MarketId>(DEFAULT_MARKET);
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("aurelia-market");
-      if (saved === "india" || saved === "usa") setId(saved);
-    } catch {}
-  }, []);
+  const id = useSyncExternalStore(subscribeMarket, getMarketSnapshot, getServerMarketSnapshot);
+
   const setMarket = useCallback((next: MarketId) => {
-    setId(next);
+    cachedMarket = next;
     try {
       localStorage.setItem("aurelia-market", next);
     } catch {}
+    marketListeners.forEach((cb) => cb());
     requestAnimationFrame(() => ScrollTrigger.refresh());
   }, []);
+
   const value = useMemo(() => ({ market: markets[id], setMarket }), [id, setMarket]);
   return <MarketCtx.Provider value={value}>{children}</MarketCtx.Provider>;
 }

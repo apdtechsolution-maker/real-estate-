@@ -21,7 +21,6 @@ export function Preloader() {
 
   useEffect(() => {
     if (done) {
-      setGone(true);
       return;
     }
     const el = root.current;
@@ -29,7 +28,6 @@ export function Preloader() {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) {
       finish();
-      setGone(true);
       return;
     }
     let seen = false;
@@ -108,7 +106,7 @@ export function Preloader() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (gone) return null;
+  if (done || gone) return null;
 
   return (
     <div

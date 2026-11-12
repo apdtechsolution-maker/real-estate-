@@ -1,7 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { gsap } from "@/lib/gsap";
+
+const CURSOR_QUERY = "(pointer: fine) and (prefers-reduced-motion: no-preference)";
+
+function subscribeCursor(callback: () => void) {
+  const mq = window.matchMedia(CURSOR_QUERY);
+  mq.addEventListener("change", callback);
+  return () => mq.removeEventListener("change", callback);
+}
+
+function getCursorSnapshot() {
+  return window.matchMedia(CURSOR_QUERY).matches;
+}
+
+function getServerCursorSnapshot() {
+  return false;
+}
 
 /**
  * Desktop-only custom pointer. Elements can opt in with:
@@ -13,15 +29,7 @@ export function Cursor() {
   const dot = useRef<HTMLDivElement>(null);
   const ring = useRef<HTMLDivElement>(null);
   const [label, setLabel] = useState("");
-  const [enabled, setEnabled] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(pointer: fine) and (prefers-reduced-motion: no-preference)");
-    setEnabled(mq.matches);
-    const onChange = () => setEnabled(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
+  const enabled = useSyncExternalStore(subscribeCursor, getCursorSnapshot, getServerCursorSnapshot);
 
   useEffect(() => {
     if (!enabled || !dot.current || !ring.current) return;

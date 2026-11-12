@@ -1,13 +1,12 @@
 # Aurelia Estates — Luxury Residential Experience
 
-Next.js (App Router) · TypeScript · Tailwind v4 · GSAP + ScrollTrigger + SplitText · Lenis · Motion · Drizzle/PostgreSQL · React Hook Form + Zod
+Next.js (App Router) · TypeScript · Tailwind v4 · GSAP + ScrollTrigger + SplitText · Lenis · Motion · React Hook Form + Zod
 
 ## Local development
 
 ```bash
-cp .env.example .env        # set DATABASE_URL
+cp .env.example .env.local
 npm install
-npx drizzle-kit push        # creates the `inquiries` table
 npm run dev
 ```
 
@@ -20,9 +19,9 @@ npm run dev
 
 **All prices, units, distances and project names are illustrative demo content.**
 
-## Leads
+## Leads / Inquiries
 
-`POST /api/inquiry` validates with the shared Zod schema (`src/lib/inquiry-schema.ts`), rate-limits, uses a honeypot field, stores the lead in PostgreSQL and optionally forwards it to `LEAD_WEBHOOK_URL` (Bearer `LEAD_WEBHOOK_SECRET`).
+The consultation request form (`src/components/forms/InquiryForm.tsx`) operates as a frontend preview with client-side validation via Zod and React Hook Form. It does not store or transmit form data.
 
 ## Structure
 
@@ -42,4 +41,4 @@ The hero and collection renders are AI-generated originals. The remaining photos
 
 ## Deploy (Vercel)
 
-Import the repo, set `DATABASE_URL` (e.g. Neon / Vercel Postgres), `NEXT_PUBLIC_SITE_URL` and `NEXT_PUBLIC_MARKET`, run `npx drizzle-kit push` once against that database, then deploy.
+Import the repository into Vercel and deploy. No database configuration or server environment variables required.

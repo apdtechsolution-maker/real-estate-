@@ -1,7 +1,7 @@
 "use client";
 
 import Lenis from "lenis";
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
 
 interface ScrollApi {
@@ -18,8 +18,26 @@ const ScrollCtx = createContext<ScrollApi>({
   start: () => {},
 });
 
+const lenisListeners = new Set<() => void>();
+let currentLenis: Lenis | null = null;
+
+function subscribeLenis(cb: () => void) {
+  lenisListeners.add(cb);
+  return () => {
+    lenisListeners.delete(cb);
+  };
+}
+
+function getLenisSnapshot() {
+  return currentLenis;
+}
+
+function getServerLenisSnapshot() {
+  return null;
+}
+
 export function SmoothScroll({ children }: { children: ReactNode }) {
-  const [lenis, setLenis] = useState<Lenis | null>(null);
+  const lenis = useSyncExternalStore(subscribeLenis, getLenisSnapshot, getServerLenisSnapshot);
   const lenisRef = useRef<Lenis | null>(null);
 
   useEffect(() => {
@@ -32,16 +50,18 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
       touchMultiplier: 1.1,
     });
     lenisRef.current = l;
+    currentLenis = l;
     l.on("scroll", ScrollTrigger.update);
     const raf = (time: number) => l.raf(time * 1000);
     gsap.ticker.add(raf);
     gsap.ticker.lagSmoothing(0);
-    setLenis(l);
+    lenisListeners.forEach((cb) => cb());
     return () => {
       gsap.ticker.remove(raf);
       l.destroy();
       lenisRef.current = null;
-      setLenis(null);
+      currentLenis = null;
+      lenisListeners.forEach((cb) => cb());
     };
   }, []);
 

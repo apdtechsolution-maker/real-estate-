@@ -1,13 +1,12 @@
 "use client";
-
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, Check, Loader2 } from "lucide-react";
 import { useMarket } from "@/components/providers/AppProviders";
 import { COUNTRY_CODES, INTERESTS, inquirySchema, type InquiryInput, type InquiryOutput } from "@/lib/inquiry-schema";
-
 type Interest = InquiryInput["propertyInterest"];
 
 interface Props {
@@ -41,13 +40,12 @@ export function InquiryForm({ defaultInterest = "undecided", source = "website",
   const [serverError, setServerError] = useState("");
   const [reference, setReference] = useState("");
 
-  const {
+   const {
     register,
     handleSubmit,
     setValue,
-    setError,
     reset,
-    watch,
+    control,
     formState: { errors },
   } = useForm<InquiryInput, unknown, InquiryOutput>({
     resolver: zodResolver(inquirySchema),
@@ -79,33 +77,22 @@ export function InquiryForm({ defaultInterest = "undecided", source = "website",
     if (q && INTERESTS.some((i) => i.value === q)) setValue("propertyInterest", q as Interest);
   }, [setValue]);
 
+
   const onSubmit = async (data: InquiryOutput) => {
     setStatus("sending");
     setServerError("");
-    try {
-      const res = await fetch("/api/inquiry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      const json = (await res.json()) as { ok: boolean; reference?: string; error?: string; fieldErrors?: Record<string, string> };
-      if (!res.ok || !json.ok) {
-        if (json.fieldErrors) {
-          Object.entries(json.fieldErrors).forEach(([k, v]) => setError(k as keyof InquiryInput, { message: v }));
-        }
-        setServerError(json.error ?? "Something went wrong.");
-        setStatus("error");
-        return;
-      }
-      setReference(json.reference ?? "");
-      setStatus("done");
-    } catch {
-      setServerError("Network error — please check your connection and try again.");
-      setStatus("error");
-    }
+
+    // Static demo: no API or database request.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    setReference("");
+    setStatus("done");
   };
 
-  const contactPref = watch("preferredContact");
+const contactPref = useWatch({
+  control,
+  name: "preferredContact",
+});
 
   if (status === "done") {
     return (
@@ -119,9 +106,9 @@ export function InquiryForm({ defaultInterest = "undecided", source = "website",
           <Check size={26} strokeWidth={1.25} />
         </motion.span>
         <h3 className="display mt-8 text-5xl">Thank you.</h3>
-        <p className="mt-4 max-w-md leading-relaxed text-[var(--muted)]">
-          Your request has been received. A member of our private office will contact you within one business day to arrange your {market.id === "usa" ? "tour" : "private viewing"}.
-        </p>
+       <p className="mt-4 max-w-md leading-relaxed text-[var(--muted)]">
+  Thank you for your interest in Aurelia Estates. This form is currently a preview, and your details have not been sent or stored.
+</p>
         {reference && <p className="eyebrow mt-6">Reference · {reference}</p>}
         <button
           type="button"
@@ -222,9 +209,9 @@ export function InquiryForm({ defaultInterest = "undecided", source = "website",
           <input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-[var(--gold)]" aria-invalid={!!errors.consent} aria-describedby="consent-err" {...register("consent")} />
           <span>
             I agree to be contacted about Aurelia Estates and accept the{" "}
-            <a href="/legal/privacy" className="u-link text-[var(--fg)]">
-              privacy policy
-            </a>
+         <Link href="/legal/privacy" className="u-link text-[var(--fg)]">
+  privacy policy
+</Link>
             .
           </span>
         </label>
